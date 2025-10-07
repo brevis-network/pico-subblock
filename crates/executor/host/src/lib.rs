@@ -573,10 +573,12 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
         let mut before_storage_proofs = Vec::new();
         let mut after_storage_proofs = Vec::new();
 
-        for chunk in cumulative_state_requests.into_iter().chunks(10).into_iter() {
+        let entries: Vec<_> = cumulative_state_requests.into_iter().collect();
+        for chunk in entries.chunks(10) {
             let mut before_handles = JoinSet::new();
             let mut after_handles = JoinSet::new();
             for (address, used_keys) in chunk {
+                let address = *address;
                 let modified_keys = cumulative_executor_outcomes
                     .state()
                     .state
