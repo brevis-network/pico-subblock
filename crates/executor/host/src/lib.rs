@@ -4,8 +4,7 @@ use alloy_consensus::{Block, BlockHeader, TxEnvelope, TxReceipt};
 use alloy_network::Ethereum;
 use alloy_primitives::Bloom;
 use alloy_provider::Provider;
-pub use error::Error as HostError;
-use itertools::Itertools;
+use error::HostError;
 use reth_execution_types::ExecutionOutcome;
 use reth_primitives_traits::{proofs, Block as BlockTrait};
 use reth_trie::{AccountProof, KeccakKeyHasher};
@@ -19,40 +18,45 @@ use rsp_client_executor::{
 };
 use rsp_mpt::EthereumState;
 use rsp_primitives::account_proof::eip1186_proof_to_account_proof;
-use rsp_rpc_db::{RpcDb, RpcDbData};
+use rsp_rpc_db::{
+    basic::BasicRpcDb,
+    db::{RpcDb, RpcDbTrait},
+    execution_witness::ExecutionWitnessRpcDb,
+};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     fmt::Debug,
-    fs::File,
-    io::{BufReader, BufWriter},
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::{task::JoinSet, time::sleep};
 
-/// The maximum number of times to retry fetching a proof.
+/// maximum number of times to retry fetching a proof
 const MAX_PROOF_RETRIES: u32 = 5;
-/// The initial backoff duration for proof fetching retries.
+
+/// initial backoff duration for proof fetching retries
 const INITIAL_RETRY_BACKOFF: Duration = Duration::from_millis(1000);
-/// The default subblock gas limit
+
+/// default subblock gas limit
 const DEFAULT_SUBBLOCK_GAS_LIMIT: u64 = 1_000_000;
+
+/// default Rpc data cache directory
+const RPC_CACHE_DIR: &str = "rpc_db_cache";
+
+/// cache filename of basic Rpc Db
+const BASIC_RPC_CACHE_FILENAME: &str = "basic.db";
+
+/// cache filename of execution witness Rpc Db
+const EXECUTION_WITNESS_RPC_CACHE_FILENAME: &str = "exeuction_witness.db";
 
 /// An executor that fetches data from a [Provider] to execute blocks in the [ClientExecutor].
 #[derive(Debug, Clone)]
 pub struct HostExecutor<P: Provider<Ethereum> + Clone> {
-    /// The provider which fetches data.
-    pub provider: Arc<P>,
+    pub basic_provider: Arc<P>,
+    pub debug_provider: Arc<P>,
 }
 
-/*
-lazy_static::lazy_static! {
-    /// Amount of gas used per subblock.
-    pub static ref SUBBLOCK_GAS_LIMIT: u64 = std::env::var("SUBBLOCK_GAS_LIMIT")
-        .map(|s| s.parse().unwrap())
-        .unwrap_or(1_000_000);
-}
-*/
 lazy_static::lazy_static! {
     /// maximum subblock count to split
     pub static ref MAX_SUBBLOCK_COUNT: usize = std::env::var("MAX_SUBBLOCK_COUNT")
@@ -71,8 +75,8 @@ fn merge_state_requests(
 
 impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
     /// Create a new [`HostExecutor`] with a specific [Provider] and [Transport].
-    pub fn new(provider: P) -> Self {
-        Self { provider: Arc::new(provider) }
+    pub fn new(basic_provider: P, debug_provider: P) -> Self {
+        Self { basic_provider: Arc::new(basic_provider), debug_provider: Arc::new(debug_provider) }
     }
 
     async fn get_proof(
@@ -131,13 +135,16 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
     /// subblock.
     pub async fn execute_subblock(
         &self,
+        use_execution_witness: bool,
         block_number: u64,
         variant: ChainVariant,
         dump_dir: Option<PathBuf>,
     ) -> Result<SubblockHostOutput, HostError> {
         tracing::info!("execute_subblock block_number={block_number}");
         match variant {
-            ChainVariant::Ethereum => self.execute_variant_subblocks(block_number, dump_dir).await,
+            ChainVariant::Ethereum => {
+                self.execute_variant_subblocks(use_execution_witness, block_number, dump_dir).await
+            }
         }
     }
 
@@ -146,7 +153,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
         tracing::info!("fetching the current block and the previous block");
 
         let current_block = self
-            .provider
+            .basic_provider
             .get_block_by_number(block_number.into())
             .full()
             .await?
@@ -157,7 +164,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
             })?;
 
         let previous_block: Block<_> = self
-            .provider
+            .basic_provider
             .get_block_by_number((block_number - 1).into())
             .full()
             .await?
@@ -172,7 +179,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
 
         // Setup the database for the block executor.
         tracing::info!("setting up the database for the block executor");
-        let rpc_db = RpcDb::new(self.provider.clone(), block_number - 1, None);
+        let rpc_db = BasicRpcDb::new(self.basic_provider.clone(), block_number - 1, &None);
         let cache_db = CacheDB::new(&rpc_db);
 
         // Execute the block and fetch all the necessary data along the way.
@@ -213,7 +220,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
             vec![executor_output.result.requests],
         );
 
-        let state_requests = rpc_db.get_state_requests();
+        let state_requests = rpc_db.state_requests();
 
         // For every account we touched, fetch the storage proofs for all the slots we touched.
         tracing::info!("fetching storage proofs");
@@ -241,14 +248,14 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
                 .collect::<Vec<_>>();
 
             let storage_proof = self
-                .provider
+                .basic_provider
                 .get_proof(*address, keys.clone())
                 .block_id((block_number - 1).into())
                 .await?;
             before_storage_proofs.push(eip1186_proof_to_account_proof(storage_proof));
 
             let storage_proof = self
-                .provider
+                .basic_provider
                 .get_proof(*address, modified_keys)
                 .block_id((block_number).into())
                 .await?;
@@ -315,7 +322,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
         tracing::info!("fetching {} ancestor headers", block_number - oldest_ancestor);
         for height in (oldest_ancestor..=(block_number - 1)).rev() {
             let block = self
-                .provider
+                .basic_provider
                 .get_block_by_number(height.into())
                 .await?
                 .ok_or(HostError::ExpectedBlock(height))?;
@@ -329,7 +336,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
             ancestor_headers,
             parent_state: state,
             state_requests,
-            bytecodes: rpc_db.get_bytecodes(),
+            bytecodes: rpc_db.bytecodes(),
         };
         tracing::info!("successfully generated client input");
 
@@ -338,6 +345,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
 
     async fn execute_variant_subblocks(
         &self,
+        use_execution_witness: bool,
         block_number: u64,
         dump_dir: Option<PathBuf>,
     ) -> Result<SubblockHostOutput, HostError> {
@@ -345,7 +353,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
         // Fetch the current block and the previous block from the provider.
         tracing::info!("fetching the current block and the previous block");
         let current_block = self
-            .provider
+            .basic_provider
             .get_block_by_number(block_number.into())
             .full()
             .await?
@@ -356,7 +364,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
             })?;
 
         let previous_block = self
-            .provider
+            .basic_provider
             .get_block_by_number((block_number - 1).into())
             .full()
             .await?
@@ -366,32 +374,46 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
                 block.into_consensus()
             })?;
 
-        println!("TIMER fetch current & parent block:  {:.3?}", t.elapsed());
+        tracing::info!("TIMER fetch current & parent block:  {:.3?}", t.elapsed());
         let t = Instant::now();
 
         let total_transactions = current_block.body.transactions.len() as u64;
-
         let previous_block_hash = previous_block.hash_slow();
 
-        // Setup the spec for the block executor.
-        tracing::info!("setting up the spec for the block executor");
-
-        // Build rpc-db persistent data file path
-        let rpc_db_path = rpc_db_cache_path(dump_dir, block_number);
-
-        // Try to load rpc-db persistent data
-        let rpc_db_data = load_rpc_db_data(&rpc_db_path);
-        let rpc_db_cache_exists = rpc_db_data.is_some();
-
-        // Setup the database for the block executor.
         tracing::info!("setting up the database for the block executor");
-        let mut rpc_db = RpcDb::new(self.provider.clone(), block_number - 1, rpc_db_data);
+        let (rpc_db_cache_path, mut rpc_db) = if use_execution_witness {
+            // build the execution witness Rpc Db cache file path
+            let cache_path = execution_witness_rpc_db_cache_file_path(dump_dir, block_number);
+
+            // setup execution witness Rpc Db for block executor
+            let rpc_db = ExecutionWitnessRpcDb::new(
+                block_number - 1,
+                previous_block.state_root,
+                self.basic_provider.clone(),
+                self.debug_provider.clone(),
+                &cache_path,
+            )
+            .await?;
+            let rpc_db = RpcDb::ExecutionWitness(rpc_db);
+
+            (cache_path, rpc_db)
+        } else {
+            // build the basic Rpc Db cache file path
+            let cache_path = basic_rpc_db_cache_file_path(dump_dir, block_number);
+
+            // setup basic Rpc Db for block executor
+            let rpc_db =
+                BasicRpcDb::new(self.basic_provider.clone(), block_number - 1, &cache_path);
+            let rpc_db = RpcDb::Basic(rpc_db);
+
+            (cache_path, rpc_db)
+        };
 
         // Execute the block and fetch all the necessary data along the way.
         tracing::info!(
             "executing the block and with rpc db: block_number={}, transaction_count={}",
             block_number,
-            total_transactions
+            total_transactions,
         );
 
         let executor_block_input = EthereumVariant::pre_process_block(&current_block)
@@ -467,14 +489,11 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
 
             tracing::info!("num transactions left: {}", subblock_input.body().transactions.len());
             println!("TIMER prepare subblock_input slice:  {:.3?}", t_slice.elapsed());
-            let t_exec = Instant::now();
 
             // Execute the subblock.
             let spec = EthereumVariant::spec();
             tracing::info!("before cumulative_gas_used = {cumulative_gas_used}");
             let subblock_output = EthereumVariant::execute(&subblock_input, &spec, cache_db)?;
-            tracing::info!("after gas_used = {}", subblock_output.result.gas_used);
-            println!("TIMER execute VM (subblock {})   {:.3?}", loop_count - 1, t_exec.elapsed());
 
             let t_post = Instant::now();
             let num_executed_transactions = subblock_output.receipts.len();
@@ -484,7 +503,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
             tracing::info!(
                 "successfully executed subblock: num_transactions_completed={}, upper={}",
                 num_transactions_completed,
-                upper
+                upper,
             );
 
             // Accumulate the logs bloom.
@@ -531,7 +550,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
             cumulative_executor_outcomes.extend(executor_outcome);
 
             // Record the state requests for this subblock.
-            let subblock_state_requests = rpc_db.get_state_requests();
+            let subblock_state_requests = rpc_db.state_requests();
 
             // Merge the state requests from the subblock into `cumulative_state_requests`.
             merge_state_requests(&mut cumulative_state_requests, &subblock_state_requests);
@@ -540,7 +559,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
             let mut subblock_input = SubblockInput {
                 current_block: EthereumVariant::pre_process_block(&current_block),
                 block_hashes: BTreeMap::new(),
-                bytecodes: rpc_db.get_bytecodes(),
+                bytecodes: rpc_db.bytecodes(),
                 is_first_subblock,
                 is_last_subblock,
                 starting_gas_used,
@@ -568,64 +587,82 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
             }
         }
 
-        let t_storage_proof = Instant::now();
-        // Build parent state from modified keys and used keys from this subblock
-        let mut before_storage_proofs = Vec::new();
-        let mut after_storage_proofs = Vec::new();
-
-        let entries: Vec<_> = cumulative_state_requests.into_iter().collect();
-        for chunk in entries.chunks(10) {
-            let mut before_handles = JoinSet::new();
-            let mut after_handles = JoinSet::new();
-            for (address, used_keys) in chunk {
-                let address = *address;
-                let modified_keys = cumulative_executor_outcomes
-                    .state()
-                    .state
-                    .get(&address)
-                    .map(|account| {
-                        account.storage.keys().map(|key| B256::from(*key)).collect::<BTreeSet<_>>()
-                    })
-                    .unwrap_or_default()
-                    .into_iter()
-                    .collect::<Vec<_>>();
-
-                let keys = used_keys
-                    .iter()
-                    .map(|key| B256::from(*key))
-                    .chain(modified_keys.clone().into_iter())
-                    .collect::<BTreeSet<_>>()
-                    .into_iter()
-                    .collect::<Vec<_>>();
-
-                let provider_clone = self.provider.clone();
-
-                before_handles.spawn(async move {
-                    Self::get_proof(provider_clone, address, keys, block_number - 1).await.unwrap()
-                });
-
-                let provider_clone = self.provider.clone();
-                after_handles.spawn(async move {
-                    Self::get_proof(provider_clone, address, modified_keys, block_number)
-                        .await
-                        .unwrap()
-                });
-            }
-            before_storage_proofs.extend(before_handles.join_all().await);
-            after_storage_proofs.extend(after_handles.join_all().await);
+        if let Some(file_path) = rpc_db_cache_path {
+            // store the Rpc Db cache data to a file
+            rpc_db.store_cache(&file_path)?;
         }
 
-        println!(
-            "TIMER join before & after storage proofs (get from provider):  {:.3?}",
-            t_storage_proof.elapsed()
-        );
+        let parent_state = match rpc_db {
+            RpcDb::Basic(ref _rpc_db) => {
+                let t_storage_proof = Instant::now();
+                // Build parent state from modified keys and used keys from this subblock
+                let mut before_storage_proofs = Vec::new();
+                let mut after_storage_proofs = Vec::new();
 
-        let t_state = Instant::now();
-        let parent_state = EthereumState::from_transition_proofs(
-            previous_block.state_root,
-            &before_storage_proofs.iter().map(|item| (item.address, item.clone())).collect(),
-            &after_storage_proofs.iter().map(|item| (item.address, item.clone())).collect(),
-        )?;
+                let entries: Vec<_> = cumulative_state_requests.into_iter().collect();
+                for chunk in entries.chunks(10) {
+                    let mut before_handles = JoinSet::new();
+                    let mut after_handles = JoinSet::new();
+                    for (address, used_keys) in chunk {
+                        let address = *address;
+                        let modified_keys = cumulative_executor_outcomes
+                            .state()
+                            .state
+                            .get(&address)
+                            .map(|account| {
+                                account
+                                    .storage
+                                    .keys()
+                                    .map(|key| B256::from(*key))
+                                    .collect::<BTreeSet<_>>()
+                            })
+                            .unwrap_or_default()
+                            .into_iter()
+                            .collect::<Vec<_>>();
+
+                        let keys = used_keys
+                            .iter()
+                            .map(|key| B256::from(*key))
+                            .chain(modified_keys.clone().into_iter())
+                            .collect::<BTreeSet<_>>()
+                            .into_iter()
+                            .collect::<Vec<_>>();
+
+                        let provider_clone = self.basic_provider.clone();
+
+                        before_handles.spawn(async move {
+                            Self::get_proof(provider_clone, address, keys, block_number - 1)
+                                .await
+                                .unwrap()
+                        });
+
+                        let provider_clone = self.basic_provider.clone();
+                        after_handles.spawn(async move {
+                            Self::get_proof(provider_clone, address, modified_keys, block_number)
+                                .await
+                                .unwrap()
+                        });
+                    }
+                    before_storage_proofs.extend(before_handles.join_all().await);
+                    after_storage_proofs.extend(after_handles.join_all().await);
+                }
+
+                println!(
+                    "TIMER join before & after storage proofs (get from provider):  {:.3?}",
+                    t_storage_proof.elapsed()
+                );
+
+                EthereumState::from_transition_proofs(
+                    previous_block.state_root,
+                    &before_storage_proofs
+                        .iter()
+                        .map(|item| (item.address, item.clone()))
+                        .collect(),
+                    &after_storage_proofs.iter().map(|item| (item.address, item.clone())).collect(),
+                )?
+            }
+            RpcDb::ExecutionWitness(ref rpc_db) => rpc_db.full_state.state.clone(),
+        };
 
         let mut cumulative_state_diffs =
             cumulative_executor_outcomes.hash_state_slow::<KeccakKeyHasher>();
@@ -642,7 +679,6 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
         if state_root != current_block.state_root {
             return Err(HostError::StateRootMismatch(state_root, current_block.state_root));
         }
-        println!("TIMER update parent_state:  {:.3?}", t_state.elapsed());
         let t_header = Instant::now();
 
         // Derive the block header.
@@ -681,20 +717,39 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
         let t_anc = Instant::now();
 
         // Fetch the parent headers needed to constrain the BLOCKHASH opcode.
-        let oldest_ancestor = *rpc_db.oldest_ancestor.borrow();
-        let mut ancestor_headers = vec![];
-        let mut block_hashes = BTreeMap::new();
-        tracing::info!("fetching {} ancestor headers", block_number - oldest_ancestor);
-        for height in (oldest_ancestor..=(block_number - 1)).rev() {
-            let block = self
-                .provider
-                .get_block_by_number(height.into())
-                .await?
-                .ok_or(HostError::ExpectedBlock(height))?;
+        let (ancestor_headers, block_hashes) = match rpc_db {
+            RpcDb::Basic(ref rpc_db) => {
+                let oldest_ancestor = *rpc_db.oldest_ancestor.borrow();
+                let mut ancestor_headers = vec![];
+                let mut block_hashes = BTreeMap::new();
+                tracing::info!("fetching {} ancestor headers", block_number - oldest_ancestor);
+                for height in (oldest_ancestor..=(block_number - 1)).rev() {
+                    let block = self
+                        .basic_provider
+                        .get_block_by_number(height.into())
+                        .await?
+                        .ok_or(HostError::ExpectedBlock(height))?;
 
-            block_hashes.insert(height, block.header.hash);
-            ancestor_headers.push(block.header.into());
-        }
+                    block_hashes.insert(height, block.header.hash);
+                    ancestor_headers.push(block.header.into());
+                }
+
+                (ancestor_headers, block_hashes)
+            }
+            RpcDb::ExecutionWitness(ref rpc_db) => {
+                let mut ancestor_headers = vec![];
+                let mut block_hashes = BTreeMap::new();
+                for (block_num, header) in rpc_db.full_state.ancestor_headers.clone().into_iter() {
+                    let block_hash = header.hash_slow();
+                    block_hashes.insert(block_num, block_hash);
+
+                    ancestor_headers.push(header);
+                }
+                ancestor_headers.sort_by(|a, b| b.number.cmp(&a.number));
+
+                (ancestor_headers, block_hashes)
+            }
+        };
 
         let aggregation_input = AggregationInput {
             current_block: EthereumVariant::pre_process_block(&current_block),
@@ -786,18 +841,13 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
             all_subblock_outputs.validate().expect("host and client outputs are different");
         }
 
-        // only save the cache rpc-db data if it doesn't exist before
-        if !rpc_db_cache_exists {
-            let _ = store_rpc_db_data(&rpc_db_path, &rpc_db.cache_data.borrow());
-        }
-
         Ok(all_subblock_outputs)
     }
 
     async fn compute_subblock_gas_limits(&self, block: &reth_primitives::Block) -> Vec<u64> {
         // call eth_getBlockReceipts to get gas used of each transaction
         let receipts =
-            self.provider.get_block_receipts(block.number.into()).await.unwrap().unwrap();
+            self.basic_provider.get_block_receipts(block.number.into()).await.unwrap().unwrap();
         assert_eq!(receipts.len(), block.body.transactions.len());
 
         // handle no transaction case
@@ -869,26 +919,21 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
     }
 }
 
-fn rpc_db_cache_path(dump_dir: Option<PathBuf>, block_number: u64) -> PathBuf {
-    let base = dump_dir.unwrap_or_else(|| PathBuf::from("."));
-    base.join(format!("block_{}.db", block_number))
+// return the file path of basic Rpc Db cache
+fn basic_rpc_db_cache_file_path(dump_dir: Option<PathBuf>, block_number: u64) -> Option<PathBuf> {
+    rpc_db_cache_dir_path(dump_dir, block_number).map(|p| p.join(BASIC_RPC_CACHE_FILENAME))
 }
 
-fn load_rpc_db_data(file_path: &PathBuf) -> Option<RpcDbData> {
-    if !file_path.exists() {
-        return None;
-    }
-
-    let file = File::open(file_path).ok()?;
-    let reader = BufReader::new(file);
-
-    bincode::deserialize_from(reader).ok()
+// return the file path of execution witness Rpc Db cache
+fn execution_witness_rpc_db_cache_file_path(
+    dump_dir: Option<PathBuf>,
+    block_number: u64,
+) -> Option<PathBuf> {
+    rpc_db_cache_dir_path(dump_dir, block_number)
+        .map(|p| p.join(EXECUTION_WITNESS_RPC_CACHE_FILENAME))
 }
 
-fn store_rpc_db_data(file_path: &PathBuf, rpc_db_data: &RpcDbData) -> eyre::Result<()> {
-    let file = File::create(file_path)?;
-    let writer = BufWriter::new(file);
-    bincode::serialize_into(writer, rpc_db_data)?;
-
-    Ok(())
+// return the directory path of Rpc Db cache
+fn rpc_db_cache_dir_path(dump_dir: Option<PathBuf>, block_number: u64) -> Option<PathBuf> {
+    dump_dir.map(|p| p.join(RPC_CACHE_DIR).join(format!("block_{block_number}")))
 }

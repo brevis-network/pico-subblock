@@ -19,6 +19,7 @@ struct HostArgs {
     #[clap(long)]
     block_number: u64,
 
+    /// Provider configuration for RPC API
     #[clap(flatten)]
     provider: ProviderArgs,
 
@@ -47,13 +48,8 @@ async fn main() -> eyre::Result<()> {
     // Parse the command line arguments.
     let args = HostArgs::parse();
     let provider_config = args.provider.clone().into_provider().await?;
-
-    let variant = match provider_config.chain_id {
-        CHAIN_ID_ETH_MAINNET => ChainVariant::Ethereum,
-        _ => {
-            eyre::bail!("unknown chain ID: {}", provider_config.chain_id);
-        }
-    };
+    assert_eq!(provider_config.chain_id, CHAIN_ID_ETH_MAINNET);
+    let variant = ChainVariant::Ethereum;
 
     let client_input_from_cache = try_load_input_from_cache(
         args.cache_dir.as_ref(),
@@ -61,15 +57,20 @@ async fn main() -> eyre::Result<()> {
         args.block_number,
     )?;
 
-    let client_input = match (client_input_from_cache, provider_config.rpc_url) {
-        (Some(client_input_from_cache), _) => client_input_from_cache,
-        (None, Some(rpc_url)) => {
+    let client_input = match (
+        client_input_from_cache,
+        provider_config.basic_rpc_url,
+        provider_config.debug_rpc_url,
+    ) {
+        (Some(client_input_from_cache), _, _) => client_input_from_cache,
+        (None, Some(basic_rpc_url), Some(debug_rpc_url)) => {
             // Cache not found, but RPC is set.
             // Setup the provider.
-            let provider = ReqwestProvider::new_http(rpc_url);
+            let basic_provider = ReqwestProvider::new_http(basic_rpc_url);
+            let debug_provider = ReqwestProvider::new_http(debug_rpc_url);
 
             // Setup the host executor.
-            let host_executor = HostExecutor::new(provider);
+            let host_executor = HostExecutor::new(basic_provider, debug_provider);
 
             // Execute the host.
             let client_input = host_executor
@@ -91,7 +92,7 @@ async fn main() -> eyre::Result<()> {
 
             client_input
         }
-        (None, None) => {
+        _ => {
             eyre::bail!("cache not found and RPC URL not provided")
         }
     };

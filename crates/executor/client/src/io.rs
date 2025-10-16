@@ -183,7 +183,7 @@ impl SubblockOutput {
 ///
 /// Necessary data for subblock stdin and agg stdin. Note that the subblock parent states and
 /// agg parent state are serialized with rkyv as bytes here.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubblockHostOutput {
     pub subblock_inputs: Vec<SubblockInput>,
     pub subblock_parent_states: Vec<Vec<u8>>,
@@ -209,13 +209,13 @@ impl SubblockHostOutput {
             )?;
 
             if subblock_output != self.subblock_outputs[i] {
-                eprintln!(
-                    "executed output state root {:?}\n pre-generated output state root {:?}",
-                    subblock_output.output_state_root, self.subblock_outputs[i].output_state_root
+                assert_eq!(
+                    subblock_output.input_state_root, self.subblock_outputs[i].input_state_root,
+                    "executed input state root != pre-generated input state root",
                 );
-                eprintln!(
-                    "executed input state root {:?}\n pre-generated input state root {:?}",
-                    subblock_output.input_state_root, self.subblock_outputs[i].input_state_root
+                assert_eq!(
+                    subblock_output.output_state_root, self.subblock_outputs[i].output_state_root,
+                    "executed output state root != pre-generated output state root",
                 );
                 return Err(ClientError::InvalidSubblockOutput);
             }

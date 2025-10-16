@@ -4,13 +4,16 @@ use reth_errors::BlockExecutionError;
 use revm_primitives::B256;
 use rsp_client_executor::error::ClientError;
 use rsp_mpt::FromProofError;
+use rsp_rpc_db::error::RpcDbError;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum HostError {
     #[error("Failed to parse blocks into executor friendly format {}", .0)]
     ParseError(#[from] ConversionError),
     #[error("Transport Error: {}", .0)]
     Transport(#[from] TransportError),
+    #[error("RPC Db Error: {0}")]
+    RpcDb(#[from] RpcDbError),
     #[error("Failed to recover senders from RPC block data")]
     FailedToRecoverSenders,
     #[error("Failed to validate post execution state")]
@@ -27,4 +30,6 @@ pub enum Error {
     StateRootMismatch(B256, B256),
     #[error("Client validation error: {}", .0)]
     ClientValidation(#[from] ClientError),
+    #[error("Unexpected error: {0}")]
+    Other(#[from] eyre::Error),
 }

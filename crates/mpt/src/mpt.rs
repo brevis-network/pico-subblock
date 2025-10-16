@@ -28,7 +28,7 @@ use core::{
     fmt::{Debug, Write},
     iter, mem,
 };
-use reth_trie::AccountProof;
+use reth_trie::{AccountProof, Nibbles};
 use revm::primitives::HashMap;
 use rsp_primitives::rkyv::B256Def;
 use std::collections::HashSet;
@@ -399,6 +399,35 @@ impl MptNode {
         self.cached_reference.borrow_mut().get_or_insert_with(|| self.calc_reference()).clone()
     }
 
+    pub fn for_each_leaves<F: FnMut(&[u8], &[u8])>(&self, mut f: F) {
+        let mut stack = vec![(self, Nibbles::default())];
+
+        while let Some((node, path)) = stack.pop() {
+            match node.as_data() {
+                MptNodeData::Null | MptNodeData::Digest(_) => (),
+                MptNodeData::Branch(branch) => {
+                    for (i, n) in
+                        branch.iter().enumerate().filter_map(|(i, n)| n.as_ref().map(|n| (i, n)))
+                    {
+                        let mut new_path = path;
+                        new_path.push(i as u8);
+                        stack.push((n, new_path));
+                    }
+                }
+                MptNodeData::Leaf(prefix, value) => {
+                    let mut full_path = path;
+                    full_path.extend(&Nibbles::from_nibbles(prefix_nibs(prefix)));
+                    f(&full_path.pack(), value)
+                }
+                MptNodeData::Extension(prefix, node) => {
+                    let mut new_path = path;
+                    new_path.extend(&Nibbles::from_nibbles(prefix_nibs(prefix)));
+                    stack.push((node, new_path));
+                }
+            }
+        }
+    }
+
     /// Computes and returns the 256-bit hash of the node.
     ///
     /// This method provides a unique identifier for the node based on its content.
@@ -531,7 +560,7 @@ impl MptNode {
                     Ok(None)
                 }
             }
-            MptNodeData::Digest(digest) => Err(Error::NodeNotResolved(*digest)),
+            MptNodeData::Digest(_digest) => Ok(None),
         }
     }
 
@@ -820,7 +849,9 @@ impl MptNode {
                     MptNodeData::Branch(_) | MptNodeData::Digest(_) => {}
                 }
             }
-            MptNodeData::Digest(digest) => return Err(Error::NodeNotResolved(*digest)),
+            MptNodeData::Digest(digest) => {
+                return Err(Error::NodeNotResolved(*digest));
+            }
         };
 
         self.invalidate_ref_cache();

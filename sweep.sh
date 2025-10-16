@@ -48,11 +48,12 @@ BLOCK_NUMBERS=(
 )
 
 CHAIN_ID=1
-RPC_URL=
+BASIC_RPC_URL=
+DEBUG_RPC_URL=
 # GAS_LIMITS=(16000000 8000000 1000000)
 # GAS_LIMITS=(1000000 2000000 4000000 8000000)
 # GAS_LIMITS=(7000000 8000000 9000000 10000000)
-GAS_LIMITS=(7000000 10000000)
+GAS_LIMITS=(10000000)
 DUMP_DIR=./dump_dir
 CACHE_DIR=./cache_dir
 LOG_DIR=./logs
@@ -78,6 +79,8 @@ for BLOCK_NUMBER in "${BLOCK_NUMBERS[@]}"; do
       --block-number "$BLOCK_NUMBER" \
       --chain-id "$CHAIN_ID" \
       --dump-dir "$DUMP_DIR" \
+      --basic-rpc-url "$BASIC_RPC_URL" \
+      --debug-rpc-url "$DEBUG_RPC_URL" \
       --execute \
       2>&1 | tee "$log_file"
     # --cache-dir "$CACHE_DIR" \

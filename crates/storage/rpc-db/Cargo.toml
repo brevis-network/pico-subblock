@@ -8,12 +8,21 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
+# workspace
+rsp-mpt.workspace = true
+
+# misc
+async-trait.workspace = true
+bincode.workspace = true
+derive_more.workspace = true
+eyre.workspace = true
 serde.workspace = true
-tokio.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 tracing.workspace = true
 
 # reth
+reth-primitives.workspace = true
 reth-storage-errors.workspace = true
 
 # revm
@@ -23,8 +32,12 @@ revm-primitives.workspace = true
 revm-state.workspace = true
 
 # alloy
+alloy-consensus.workspace = true
+alloy-network-primitives.workspace = true
 alloy-primitives.workspace = true
 alloy-provider.workspace = true
+alloy-rlp.workspace = true
+alloy-rpc-types-debug.workspace = true
 alloy-rpc-types.workspace = true
 alloy-transport.workspace = true
-alloy-network-primitives.workspace = true
+alloy-trie.workspace = true

@@ -8,9 +8,18 @@
 use alloy_provider::ReqwestProvider;
 use clap::Parser;
 use pico_sdk::{client::DefaultProverClient, init_logger, load_elf, HashableKey};
-use rsp_client_executor::{io::SubblockHostOutput, ChainVariant};
+use rsp_client_executor::{
+    io::{AggregationInput, SubblockHostOutput},
+    ChainVariant,
+};
 use rsp_host_executor::HostExecutor;
-use std::{env, fs::File, io::BufWriter, path::PathBuf, time::Instant};
+use std::{
+    env,
+    fs::File,
+    io::{BufWriter, Write},
+    path::{Path, PathBuf},
+    time::Instant,
+};
 
 mod cli;
 use cli::ProviderArgs;
@@ -23,13 +32,14 @@ struct HostArgs {
     block_number: u64,
     #[clap(flatten)]
     provider: ProviderArgs,
-    /// Whether to execute the subblock and aggregation programs in the SP1 zkVM.
-    ///
-    /// Note: does not generate a proof.
+
     #[clap(long)]
     execute: bool,
     #[clap(long)]
     prove: bool,
+    #[clap(long)]
+    execution_witness: bool,
+
     /// Where to dump the elf and stdin for the subblock and aggregation programs.
     #[clap(long)]
     dump_dir: Option<PathBuf>,
@@ -53,29 +63,11 @@ fn resolve_dump_dir(dump_dir: Option<&PathBuf>, block_number: u64) -> PathBuf {
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    dotenv::dotenv().ok();
+    init_logger();
+
     let t_start = Instant::now();
     let t_client_input = Instant::now();
-    // Intialize the environment variables.
-    dotenv::dotenv().ok();
-
-    // Initialize the logger.
-    // tracing_subscriber::registry()
-    //     .with(fmt::layer().compact().with_target(false).with_file(false).
-    // with_thread_names(false))     .with(
-    //         EnvFilter::try_from_default_env()
-    //             .unwrap_or_else(|_| EnvFilter::new("info"))
-    //             .add_directive("pico_sdk=debug".parse().unwrap())
-    //             .add_directive("pico_vm=info".parse().unwrap())
-    //             .add_directive("p3_keccak_air=off".parse().unwrap())
-    //             .add_directive("p3_fri=off".parse().unwrap())
-    //             .add_directive("p3_dft=off".parse().unwrap())
-    //             .add_directive("p3_matrix=off".parse().unwrap())
-    //             .add_directive("p3_merkle_tree=off".parse().unwrap())
-    //             .add_directive("p3_field=off".parse().unwrap())
-    //             .add_directive("p3_challenger=off".parse().unwrap()),
-    //     )
-    //     .init();
-    init_logger();
 
     // Parse the command line arguments.
     let args = HostArgs::parse();
@@ -88,47 +80,58 @@ async fn main() -> eyre::Result<()> {
         args.block_number,
     )?;
 
-    let client_input = match (cache_data, provider_config.rpc_url) {
-        (Some(cache_data), _) => cache_data,
-        (None, Some(rpc_url)) => {
-            // Cache not found but we have RPC
-            // Setup the provider.
-            let provider = ReqwestProvider::new_http(rpc_url);
+    let client_input =
+        match (cache_data, provider_config.basic_rpc_url, provider_config.debug_rpc_url) {
+            (Some(cache_data), _, _) => cache_data,
+            (None, Some(basic_rpc_url), Some(debug_rpc_url)) => {
+                // Cache not found but we have RPC
+                // Setup the provider.
+                let basic_provider = ReqwestProvider::new_http(basic_rpc_url);
+                let debug_provider = ReqwestProvider::new_http(debug_rpc_url);
 
-            // Setup the host executor.
-            let host_executor = HostExecutor::new(provider);
+                // Setup the host executor.
+                let host_executor = HostExecutor::new(basic_provider, debug_provider);
 
-            // Execute the host.
-            let t_prepare_sb_stdin = Instant::now();
-            let cache_data = host_executor
-                .execute_subblock(args.block_number, ChainVariant::Ethereum, args.dump_dir.clone())
-                .await
-                .expect("failed to execute host");
+                // Execute the host.
+                let t_prepare_sb_stdin = Instant::now();
+                let cache_data = host_executor
+                    .execute_subblock(
+                        args.execution_witness,
+                        args.block_number,
+                        ChainVariant::Ethereum,
+                        args.dump_dir.clone(),
+                    )
+                    .await
+                    .expect("failed to execute host");
 
-            println!("TIMER_ALL preprocess subblocks stdin: {:.3?}", t_prepare_sb_stdin.elapsed());
+                println!(
+                    "TIMER_ALL preprocess subblocks stdin: {:.3?}",
+                    t_prepare_sb_stdin.elapsed()
+                );
 
-            let t_write_to_cache = Instant::now();
+                let t_write_to_cache = Instant::now();
 
-            if let Some(ref cache_dir) = args.cache_dir {
-                let input_folder = cache_dir.join(format!("input/{}", provider_config.chain_id));
-                if !input_folder.exists() {
-                    std::fs::create_dir_all(&input_folder)?;
+                if let Some(ref cache_dir) = args.cache_dir {
+                    let input_folder =
+                        cache_dir.join(format!("input/{}", provider_config.chain_id));
+                    if !input_folder.exists() {
+                        std::fs::create_dir_all(&input_folder)?;
+                    }
+
+                    let input_path = input_folder.join(format!("{}.bin", args.block_number));
+                    let mut cache_file = std::fs::File::create(input_path)?;
+
+                    bincode::serialize_into(&mut cache_file, &cache_data)?;
                 }
 
-                let input_path = input_folder.join(format!("{}.bin", args.block_number));
-                let mut cache_file = std::fs::File::create(input_path)?;
+                println!("write_to_cache time: {:?}", t_write_to_cache.elapsed());
 
-                bincode::serialize_into(&mut cache_file, &cache_data)?;
+                cache_data
             }
-
-            println!("write_to_cache time: {:?}", t_write_to_cache.elapsed());
-
-            cache_data
-        }
-        (None, None) => {
-            eyre::bail!("cache not found and RPC URL not provided")
-        }
-    };
+            _ => {
+                eyre::bail!("cache not found and RPC URL not provided")
+            }
+        };
     println!("TIMER_ALL t_client_input: {:.3?}", t_client_input.elapsed());
 
     let t_post_client_input = Instant::now();
@@ -161,7 +164,7 @@ async fn main() -> eyre::Result<()> {
 
 async fn schedule_subblock_execution(
     subblock_client: DefaultProverClient,
-    _block_number: u64,
+    block_number: u64,
     agg_client: DefaultProverClient,
     inputs: SubblockHostOutput,
     execute: bool,
@@ -169,27 +172,9 @@ async fn schedule_subblock_execution(
     dump_dir: Option<PathBuf>,
 ) -> eyre::Result<()> {
     let t_dump = Instant::now();
-    let out_dir = resolve_dump_dir(dump_dir.as_ref(), _block_number);
+    let out_dir = resolve_dump_dir(dump_dir.as_ref(), block_number);
     std::fs::create_dir_all(&out_dir)?;
     tracing::info!("Dump directory: {}", out_dir.display());
-    // let (subblock_elf, subblock_vk) = (subblock_pk.elf, subblock_pk.vk);
-    // let agg_elf = agg_pk.elf;
-    //
-    // let dump_dir = dump_dir.map(|d| d.join(format!("{}", block_number)));
-    //
-    // if let Some(dump_dir) = dump_dir.as_ref() {
-    //     std::fs::create_dir_all(dump_dir)?;
-    //     std::fs::write(dump_dir.join("subblock_elf.bin"), &subblock_elf)?;
-    //     std::fs::write(dump_dir.join("subblock_vk.bin"), bincode::serialize(&subblock_vk)?)?;
-    //     std::fs::write(dump_dir.join("agg_elf.bin"), &agg_elf)?;
-    // }
-
-    // let client =
-    //     tokio::task::spawn_blocking(|| ProverClient::builder().cpu().build()).await.unwrap();
-    // if let Some(dump_dir) = dump_dir.as_ref() {
-    //     let stdin_path = dump_dir.join("agg_stdin.bin");
-    //     std::fs::write(stdin_path, bincode::serialize(&aggregation_stdin)?)?;
-    // }
 
     println!(
         "TIMER aggregator stdin & dump_dir in schedule_subblock_execution: {:.3?}",
@@ -390,10 +375,6 @@ async fn schedule_subblock_execution(
 //     stdin_builder.write(&subblock_host_output.agg_input.parent_header().state_root);
 //     stdin_builder
 // }
-
-use bincode;
-use rsp_client_executor::io::AggregationInput;
-use std::{io::Write, path::Path};
 
 fn dump_agg_stdin_to_files(
     public_values: &Vec<Vec<u8>>,

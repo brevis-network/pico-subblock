@@ -1,18 +1,19 @@
 #![feature(trivial_bounds)]
 
+mod execution_witness;
+mod mpt;
+
+pub use mpt::Error;
+
 use alloy_primitives::map::{foldhash::HashMapExt, HashMap};
 use itertools::Itertools;
+use mpt::{proofs_to_tries, transition_proofs_to_tries, MptNode, MptNodeReference};
 use reth_trie::{AccountProof, HashedPostState, HashedStorage, TrieAccount};
 use revm::primitives::{Address, B256};
 use rkyv::with::{Identity, MapKV};
 use rsp_primitives::rkyv::B256Def;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-
-/// Module containing MPT code adapted from `zeth`.
-mod mpt;
-pub use mpt::Error;
-use mpt::{proofs_to_tries, transition_proofs_to_tries, MptNode, MptNodeReference};
 
 /// Ethereum state trie and account storage tries.
 #[derive(
@@ -51,6 +52,16 @@ impl EthereumState {
         proofs_to_tries(state_root, proofs)
     }
 
+    pub fn from_execution_witness(
+        witness: &alloy_rpc_types_debug::ExecutionWitness,
+        pre_state_root: B256,
+    ) -> Self {
+        let (state_trie, storage_tries) =
+            execution_witness::build_validated_tries(witness, pre_state_root).unwrap();
+
+        Self { state_trie, storage_tries }
+    }
+
     /// Mutates state based on diffs provided in [`HashedPostState`].
     pub fn update(&mut self, post_state: &HashedPostState) {
         for (hashed_address, account) in post_state.accounts.iter() {
@@ -62,7 +73,7 @@ impl EthereumState {
                         .cloned()
                         .unwrap_or_else(|| HashedStorage::new(false));
                     let storage_root = {
-                        let storage_trie = self.storage_tries.get_mut(hashed_address).unwrap();
+                        let storage_trie = self.storage_tries.entry(*hashed_address).or_default();
 
                         if state_storage.wiped {
                             storage_trie.clear();
@@ -150,33 +161,36 @@ impl EthereumState {
                         .cloned()
                         .unwrap_or_else(|| HashedStorage::new(false));
 
-                    let storage_trie = self.storage_tries.get_mut(hashed_address).unwrap();
-                    let account_touched =
-                        touched_storage_refs.entry(*hashed_address_b256).or_default();
+                    if let Some(storage_trie) = self.storage_tries.get_mut(hashed_address) {
+                        let account_touched =
+                            touched_storage_refs.entry(*hashed_address_b256).or_default();
 
-                    if state_storage.wiped {
-                        println!("clearing storage");
-                        // storage_trie.clear();
-                    }
-
-                    for (key, value) in state_storage.storage.iter() {
-                        let key = key.as_slice();
-                        let mut deferred_deletes = Vec::new();
-                        if value.is_zero() {
-                            deferred_deletes.push(key);
-                        } else {
-                            let (_gotten, touched) = storage_trie.get_with_touched(key).unwrap();
-                            account_touched.extend(touched);
+                        if state_storage.wiped {
+                            println!("clearing storage");
+                            // storage_trie.clear();
                         }
-                        for key in deferred_deletes {
-                            let (_gotten, touched) = storage_trie.delete_with_touched(key).unwrap();
-                            account_touched.extend(touched);
-                        }
-                    }
 
-                    let (_gotten, touched) =
-                        self.state_trie.get_with_touched(hashed_address).unwrap();
-                    touched_account_refs.extend(touched);
+                        for (key, value) in state_storage.storage.iter() {
+                            let key = key.as_slice();
+                            let mut deferred_deletes = Vec::new();
+                            if value.is_zero() {
+                                deferred_deletes.push(key);
+                            } else {
+                                let (_gotten, touched) =
+                                    storage_trie.get_with_touched(key).unwrap();
+                                account_touched.extend(touched);
+                            }
+                            for key in deferred_deletes {
+                                let (_gotten, touched) =
+                                    storage_trie.delete_with_touched(key).unwrap();
+                                account_touched.extend(touched);
+                            }
+                        }
+
+                        let (_gotten, touched) =
+                            self.state_trie.get_with_touched(hashed_address).unwrap();
+                        touched_account_refs.extend(touched);
+                    }
                 }
                 None => {
                     let (_gotten, touched) =

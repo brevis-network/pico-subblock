@@ -7,6 +7,7 @@ mod utils;
 pub mod custom;
 pub mod error;
 
+use crate::custom::CustomEvmFactory;
 use alloy_consensus::TxReceipt;
 use alloy_eips::eip7685::Requests;
 use alloy_primitives::Bloom;
@@ -446,7 +447,8 @@ impl Variant for EthereumVariant {
         chain_spec: &ChainSpec,
         cache_db: DB,
     ) -> Result<BlockExecutionOutput<Receipt>, BlockExecutionError> {
-        let evm_config = EthEvmConfig::new(chain_spec.clone().into());
+        let evm_config =
+            EthEvmConfig::new_with_evm_factory(chain_spec.clone().into(), CustomEvmFactory);
         BasicBlockExecutor::new(evm_config, cache_db).execute(executor_block_input)
     }
 
