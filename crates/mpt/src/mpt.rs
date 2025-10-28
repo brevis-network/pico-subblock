@@ -609,7 +609,10 @@ impl MptNode {
                     Ok((None, vec![my_reference]))
                 }
             }
-            MptNodeData::Digest(digest) => Err(Error::NodeNotResolved(*digest)),
+            MptNodeData::Digest(_digest) => {
+                Ok((None, vec![]))
+                // Err(Error::NodeNotResolved(*digest))
+            }
         }
     }
 
@@ -727,7 +730,9 @@ impl MptNode {
                     MptNodeData::Branch(_) | MptNodeData::Digest(_) => {}
                 }
             }
-            MptNodeData::Digest(digest) => return Err(Error::NodeNotResolved(*digest)),
+            MptNodeData::Digest(digest) => {
+                return Err(Error::NodeNotResolved(*digest));
+            }
         };
 
         self.invalidate_ref_cache();
@@ -1015,7 +1020,9 @@ impl MptNode {
                     }
                 }
             }
-            MptNodeData::Digest(digest) => return Err(Error::NodeNotResolved(*digest)),
+            MptNodeData::Digest(digest) => {
+                return Err(Error::NodeNotResolved(*digest));
+            }
         };
 
         self.invalidate_ref_cache();
