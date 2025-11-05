@@ -838,7 +838,7 @@ impl<P: Provider<Ethereum> + Clone + Debug + 'static> HostExecutor<P> {
 
         // NOTE: this is useful for debugging, remove it in production.
         {
-            all_subblock_outputs.validate().expect("host and client outputs are different");
+            // all_subblock_outputs.validate().expect("host and client outputs are different");
         }
 
         Ok(all_subblock_outputs)
