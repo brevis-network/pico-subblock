@@ -74,7 +74,7 @@ async fn main() -> eyre::Result<()> {
 
             // Execute the host.
             let client_input = host_executor
-                .execute(args.block_number, variant)
+                .execute_block(args.block_number, variant)
                 .await
                 .expect("failed to execute host");
 
