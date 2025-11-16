@@ -168,7 +168,7 @@ dependencies = [
 [[package]]
 name = "alloy-evm"
 version = "0.18.3"
-source = "git+https://github.com/brevis-network/alloy-evm.git?branch=pico#ed866067ba276fea6dff817f24b0d28084995fc6"
+source = "git+https://github.com/brevis-network/alloy-evm.git?branch=pico#a987360fcf65a5c8c7e01011c8b5bd18ef6eafc4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -1042,7 +1042,7 @@ dependencies = [
  "ff 0.13.0",
  "group 0.13.0",
  "pairing 0.23.0",
- "pico-patch-libs 1.1.6 (git+https://github.com/brevis-network/pico.git)",
+ "pico-patch-libs 1.1.8",
  "rand_core 0.6.4",
  "subtle",
 ]
@@ -1734,7 +1734,7 @@ dependencies = [
  "digest 0.10.7",
  "elliptic-curve",
  "hex-literal",
- "pico-patch-libs 1.1.6 (git+https://github.com/brevis-network/pico.git)",
+ "pico-patch-libs 1.1.8",
  "rfc6979",
  "serdect",
  "signature",
@@ -3564,7 +3564,7 @@ dependencies = [
 [[package]]
 name = "pico-derive"
 version = "0.1.0"
-source = "git+https://github.com/brevis-network/pico.git?branch=pico-subblock#d5a3fef2f55f39ecdeb1d936ffb82fac3d9e3bb3"
+source = "git+https://github.com/brevis-network/pico.git?branch=pico-subblock#513096020f0364fc9fca74c2f57063689e8f7020"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3574,7 +3574,7 @@ dependencies = [
 [[package]]
 name = "pico-patch-libs"
 version = "1.1.6"
-source = "git+https://github.com/brevis-network/pico.git?branch=pico-subblock#d5a3fef2f55f39ecdeb1d936ffb82fac3d9e3bb3"
+source = "git+https://github.com/brevis-network/pico.git?branch=pico-subblock#513096020f0364fc9fca74c2f57063689e8f7020"
 dependencies = [
  "bincode",
  "serde",
@@ -3582,8 +3582,8 @@ dependencies = [
 
 [[package]]
 name = "pico-patch-libs"
-version = "1.1.6"
-source = "git+https://github.com/brevis-network/pico.git#b52a89e4551b3f28086f7aae49505631845bf961"
+version = "1.1.8"
+source = "git+https://github.com/brevis-network/pico.git#f84173e7d7200201a582cf38ad9b7c4bff63fdf4"
 dependencies = [
  "bincode",
  "serde",
@@ -3592,7 +3592,7 @@ dependencies = [
 [[package]]
 name = "pico-sdk"
 version = "1.1.6"
-source = "git+https://github.com/brevis-network/pico.git?branch=pico-subblock#d5a3fef2f55f39ecdeb1d936ffb82fac3d9e3bb3"
+source = "git+https://github.com/brevis-network/pico.git?branch=pico-subblock#513096020f0364fc9fca74c2f57063689e8f7020"
 dependencies = [
  "anyhow",
  "bincode",
@@ -3607,7 +3607,7 @@ dependencies = [
  "p3-field",
  "p3-koala-bear",
  "p3-mersenne-31",
- "pico-patch-libs 1.1.6 (git+https://github.com/brevis-network/pico.git?branch=pico-subblock)",
+ "pico-patch-libs 1.1.6",
  "pico-vm",
  "rand 0.8.5",
  "serde",
@@ -3618,7 +3618,7 @@ dependencies = [
 [[package]]
 name = "pico-vm"
 version = "1.1.6"
-source = "git+https://github.com/brevis-network/pico.git?branch=pico-subblock#d5a3fef2f55f39ecdeb1d936ffb82fac3d9e3bb3"
+source = "git+https://github.com/brevis-network/pico.git?branch=pico-subblock#513096020f0364fc9fca74c2f57063689e8f7020"
 dependencies = [
  "anyhow",
  "arrayref",
@@ -4063,7 +4063,7 @@ dependencies = [
 [[package]]
 name = "reth-chainspec"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -4083,7 +4083,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4101,7 +4101,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs-derive"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "convert_case",
  "proc-macro2",
@@ -4112,7 +4112,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -4125,7 +4125,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus-common"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4137,7 +4137,7 @@ dependencies = [
 [[package]]
 name = "reth-db-models"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -4149,7 +4149,7 @@ dependencies = [
 [[package]]
 name = "reth-errors"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "reth-consensus",
  "reth-execution-errors",
@@ -4160,7 +4160,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-consensus"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4176,7 +4176,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-forks"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-eip2124",
  "alloy-hardforks",
@@ -4189,7 +4189,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-primitives"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4205,7 +4205,7 @@ dependencies = [
 [[package]]
 name = "reth-evm"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4226,7 +4226,7 @@ dependencies = [
 [[package]]
 name = "reth-evm-ethereum"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4247,7 +4247,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-errors"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-evm",
  "alloy-primitives",
@@ -4260,7 +4260,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-types"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4278,7 +4278,7 @@ dependencies = [
 [[package]]
 name = "reth-network-peers"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -4291,7 +4291,7 @@ dependencies = [
 [[package]]
 name = "reth-primitives"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "once_cell",
@@ -4304,7 +4304,7 @@ dependencies = [
 [[package]]
 name = "reth-primitives-traits"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4331,7 +4331,7 @@ dependencies = [
 [[package]]
 name = "reth-prune-types"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-primitives",
  "derive_more 2.0.1",
@@ -4342,7 +4342,7 @@ dependencies = [
 [[package]]
 name = "reth-stages-types"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-primitives",
  "bytes",
@@ -4354,7 +4354,7 @@ dependencies = [
 [[package]]
 name = "reth-static-file-types"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-primitives",
  "derive_more 2.0.1",
@@ -4365,7 +4365,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-api"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4387,7 +4387,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-errors"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -4403,7 +4403,7 @@ dependencies = [
 [[package]]
 name = "reth-trie"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4425,7 +4425,7 @@ dependencies = [
 [[package]]
 name = "reth-trie-common"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -4448,7 +4448,7 @@ dependencies = [
 [[package]]
 name = "reth-trie-sparse"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -4464,7 +4464,7 @@ dependencies = [
 [[package]]
 name = "reth-zstd-compressors"
 version = "1.6.0"
-source = "git+https://github.com/brevis-network/reth.git?rev=d899c7b#d899c7bdfbc2fa0d386f2acee4f06963a3ff5bef"
+source = "git+https://github.com/brevis-network/reth.git?rev=7e23308#7e23308322b97af4c847a5989b281f7689210fb4"
 dependencies = [
  "zstd",
 ]
@@ -4752,7 +4752,7 @@ dependencies = [
  "bincode",
  "cfg-if",
  "itertools 0.13.0",
- "pico-patch-libs 1.1.6 (git+https://github.com/brevis-network/pico.git?branch=pico-subblock)",
+ "pico-patch-libs 1.1.6",
  "pico-sdk",
  "reth-chainspec",
  "reth-consensus",
@@ -5320,7 +5320,7 @@ dependencies = [
  "crunchy",
  "lazy_static",
  "num-bigint 0.4.6",
- "pico-patch-libs 1.1.6 (git+https://github.com/brevis-network/pico.git)",
+ "pico-patch-libs 1.1.8",
  "rand 0.8.5",
  "rustc-hex",
 ]
