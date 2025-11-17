@@ -10,7 +10,7 @@ use clap::Parser;
 use pico_sdk::{client::DefaultProverClient, init_logger, load_elf, HashableKey};
 use rsp_client_executor::{
     io::{AggregationInput, SubblockHostOutput},
-    ChainVariant,
+    ChainVariant, EthereumVariant,
 };
 use rsp_host_executor::HostExecutor;
 use std::{
@@ -274,6 +274,18 @@ async fn schedule_subblock_execution(
     // let parent_state =
     //     rkyv::from_bytes::<EthereumState, rkyv::rancor::BoxedError>(&aligned_vec).unwrap();
     // let parent_state_root = parent_state.state_root();
+
+    // validate to execute aggregation
+    {
+        rsp_client_executor::ClientExecutor
+            .execute_aggregation::<EthereumVariant>(
+                public_values.clone(),
+                subblock_client.riscv_vk().hash_u32(),
+                subblock_host_output.agg_input.clone(),
+                subblock_host_output.agg_input.parent_header().state_root,
+            )
+            .expect("failed to execute aggregation for validation");
+    }
 
     let _ = dump_agg_stdin_to_files(
         &public_values,

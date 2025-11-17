@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     iter::once,
     mem,
 };
@@ -161,9 +161,15 @@ impl SubblockOutput {
             return;
         }
 
-        let mut new_requests: Vec<Vec<u8>> = vec![];
         let requests = mem::take(&mut self.requests).take();
+        let mut new_requests: Vec<Vec<u8>> = vec![];
+        let mut processed_requests = HashSet::with_capacity(requests.len());
         for req in requests {
+            // skip duplicate requests
+            if !processed_requests.insert(req.clone()) {
+                continue;
+            }
+
             if let Some((&first, rest)) = req.split_first() {
                 if let Some(found_req) = new_requests.iter_mut().find(|new_req| new_req[0] == first)
                 {
@@ -220,6 +226,7 @@ impl SubblockHostOutput {
                 return Err(ClientError::InvalidSubblockOutput);
             }
         }
+
         Ok(())
     }
 }
