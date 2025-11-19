@@ -1,10 +1,8 @@
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    iter::once,
-    mem,
+use crate::{error::ClientError, EthereumVariant};
+use alloy_eips::{
+    eip6110::DEPOSIT_REQUEST_TYPE, eip7002::WITHDRAWAL_REQUEST_TYPE,
+    eip7251::CONSOLIDATION_REQUEST_TYPE, eip7685::Requests,
 };
-
-use alloy_eips::eip7685::Requests;
 use alloy_primitives::{Bloom, B256};
 use itertools::Itertools;
 use reth_errors::ProviderError;
@@ -16,13 +14,22 @@ use revm::{
     DatabaseRef,
 };
 use revm_primitives::{keccak256, Address, U256};
+use rkyv::util::AlignedVec;
 use rsp_mpt::EthereumState;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    iter::once,
+    mem,
+};
 
-use rkyv::util::AlignedVec;
-
-use crate::{error::ClientError, EthereumVariant};
+// https://eips.ethereum.org/EIPS/eip-6110
+const DEPOSIT_REQUEST_DATA_LEN: usize = 192;
+// https://eips.ethereum.org/EIPS/eip-7002
+const WITHDRAWAL_REQUEST_DATA_LEN: usize = 76;
+// https://eips.ethereum.org/EIPS/eip-7251
+const CONSOLIDATION_REQUEST_DATA_LEN: usize = 116;
 
 #[serde_as]
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -161,21 +168,36 @@ impl SubblockOutput {
             return;
         }
 
-        let requests = mem::take(&mut self.requests).take();
+        let multi_requests = mem::take(&mut self.requests).take();
+        let mut processed_requests = HashSet::with_capacity(multi_requests.len());
         let mut new_requests: Vec<Vec<u8>> = vec![];
-        let mut processed_requests = HashSet::with_capacity(requests.len());
-        for req in requests {
-            // skip duplicate requests
-            if !processed_requests.insert(req.clone()) {
-                continue;
-            }
+        for requests in multi_requests {
+            if let Some((&first, rest)) = requests.split_first() {
+                let rest_len = rest.len();
+                let request_data_len = match first {
+                    DEPOSIT_REQUEST_TYPE => DEPOSIT_REQUEST_DATA_LEN,
+                    WITHDRAWAL_REQUEST_TYPE => WITHDRAWAL_REQUEST_DATA_LEN,
+                    CONSOLIDATION_REQUEST_TYPE => CONSOLIDATION_REQUEST_DATA_LEN,
+                    _ => rest_len,
+                };
+                let request_data_len =
+                    if rest_len % request_data_len == 0 { request_data_len } else { rest_len };
 
-            if let Some((&first, rest)) = req.split_first() {
+                let mut all_request_data = Vec::with_capacity(rest_len);
+                for request_data in rest.chunks(request_data_len) {
+                    if !processed_requests.insert((first, request_data.to_vec())) {
+                        continue;
+                    }
+
+                    all_request_data.extend_from_slice(request_data);
+                }
+
                 if let Some(found_req) = new_requests.iter_mut().find(|new_req| new_req[0] == first)
                 {
-                    found_req.extend_from_slice(rest);
+                    found_req.extend(all_request_data);
                 } else {
-                    new_requests.push(req.into());
+                    all_request_data.insert(0, first);
+                    new_requests.push(all_request_data);
                 }
             }
         }
