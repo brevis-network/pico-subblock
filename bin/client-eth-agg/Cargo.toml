@@ -17,7 +17,7 @@ embed-bitcode = true
 rsp-client-executor = { path = "../../crates/executor/client" }
 
 # alloy
-alloy-primitives = { version = "1.3.0", default-features = false, features = ["sha3-keccak", "map-foldhash"] }
+alloy-primitives = { git = "https://github.com/brevis-network/alloy-core.git", branch = "pico-v1-4-1", default-features = false, features = ["map-foldhash", "sha3-keccak"] }
 
 # pico
 pico-sdk = { git = "https://github.com/brevis-network/pico.git", branch = "pico-subblock" }
@@ -27,12 +27,30 @@ log = { version = "0.4", features = ["max_level_off", "release_max_level_off"] }
 tracing = { version = "0.1", features = ["max_level_off", "release_max_level_off"] }
 
 [patch.crates-io]
-# Precompile patches
-sha2 = { git = "https://github.com/brevis-network/hashes.git", package = "sha2", branch = "sha2-0.10.9"}
+# alloy
+alloy-evm = { git = "https://github.com/brevis-network/alloy-evm.git", branch = "pico-v0-23-0" }
+alloy-primitives = { git = "https://github.com/brevis-network/alloy-core.git", branch = "pico-v1-4-1" }
+# revm
+op-revm = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm-bytecode = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm-context = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm-context-interface = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm-database = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm-database-interface = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm-handler = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm-inspector = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm-interpreter = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm-precompile = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm-primitives = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+revm-state = { git = "https://github.com/brevis-network/revm.git", branch = "pico-v97-31-0-1" }
+# misc
+foldhash = { git = "https://github.com/brevis-network/foldhash.git", branch = "pico-v0-2-0" }
+# precompiles
+bls12_381 = { git = "https://github.com/brevis-network/bls12_381", branch = "patch-v1.0.1" }
+bn = { git = "https://github.com/brevis-network/bn", branch = "patch-v1.0.1", package = "substrate-bn" }
 curve25519-dalek-ng = { git = "https://github.com/brevis-network/curve25519-dalek-ng", branch = "patch-v1.0.1"  }
 ecdsa-core = { git = "https://github.com/brevis-network/signatures", package = "ecdsa", branch = "patch-v1.0.1" }
-tiny-keccak = { git = "https://github.com/brevis-network/tiny-keccak", branch = "patch-v1.0.0" }
-bn = { git = "https://github.com/brevis-network/bn", branch = "patch-v1.0.1", package = "substrate-bn" }
-bls12_381 = { git = "https://github.com/brevis-network/bls12_381", branch = "patch-v1.0.1" }
-kzg-rs = { git = "https://github.com/brevis-network/kzg-rs.git", branch = "pico-v0.2.7" }
+sha2 = { git = "https://github.com/brevis-network/hashes.git", package = "sha2", branch = "sha2-0.10.9" }
 sha3 = { git = "https://github.com/brevis-network/hashes.git", branch = "sha3-0.10.8-v1.0.0"}
+tiny-keccak = { git = "https://github.com/brevis-network/tiny-keccak", branch = "patch-v1.0.0" }

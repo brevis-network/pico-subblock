@@ -11,15 +11,16 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-thiserror.workspace = true
-serde.workspace = true
-sha2.workspace = true
-itertools.workspace = true
 bincode.workspace = true
-rkyv.workspace = true
 cfg-if.workspace = true
-tracing.workspace = true
+itertools.workspace = true
+kzg-rs.workspace = true
+rkyv.workspace = true
+serde.workspace = true
 serde_with.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
 
 # workspace
 rsp-primitives.workspace = true

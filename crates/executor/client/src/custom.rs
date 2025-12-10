@@ -1,16 +1,14 @@
-use alloy_evm::{
-    eth::{EthEvmBuilder, EthEvmContext},
-    EthEvm,
-};
+use alloy_evm::{eth::EthEvmBuilder, EthEvm};
+use kzg_rs::{Bytes32, Bytes48, KzgProof, KzgSettings};
 use reth_evm::{precompiles::PrecompilesMap, Database, EvmEnv, EvmFactory};
 use revm::{
     context::{
         result::{EVMError, HaltReason},
         BlockEnv, CfgEnv, TxEnv,
     },
-    handler::EthPrecompiles,
     inspector::NoOpInspector,
-    Context, Inspector,
+    precompile::{Crypto, PrecompileError, PrecompileSpecId, Precompiles},
+    Context,
 };
 use revm_primitives::hardfork::SpecId;
 use std::fmt::Debug;
@@ -19,19 +17,24 @@ use std::fmt::Debug;
 pub struct CustomEvmFactory;
 
 impl EvmFactory for CustomEvmFactory {
-    type Evm<DB: Database, I: Inspector<EthEvmContext<DB>>> = EthEvm<DB, I, Self::Precompiles>;
+    type BlockEnv = BlockEnv;
     type Context<DB: Database> = Context<BlockEnv, TxEnv, CfgEnv, DB>;
-    type Tx = TxEnv;
-    type Error<DBError: core::error::Error + Send + Sync + 'static> = EVMError<DBError>;
+    type Error<DBError: std::error::Error + Send + Sync + 'static> = EVMError<DBError>;
+    type Evm<DB: Database, I: revm::Inspector<Self::Context<DB>>> = EthEvm<DB, I, PrecompilesMap>;
     type HaltReason = HaltReason;
-    type Spec = SpecId;
     type Precompiles = PrecompilesMap;
+    type Spec = SpecId;
+    type Tx = TxEnv;
 
-    fn create_evm<DB: Database>(&self, db: DB, input: EvmEnv) -> Self::Evm<DB, NoOpInspector> {
+    fn create_evm<DB: Database>(
+        &self,
+        db: DB,
+        input: EvmEnv,
+    ) -> Self::Evm<DB, revm::inspector::NoOpInspector> {
         evm_builder(db, input).build()
     }
 
-    fn create_evm_with_inspector<DB: Database, I: Inspector<Self::Context<DB>>>(
+    fn create_evm_with_inspector<DB: Database, I: revm::Inspector<Self::Context<DB>>>(
         &self,
         db: DB,
         input: EvmEnv,
@@ -41,10 +44,47 @@ impl EvmFactory for CustomEvmFactory {
     }
 }
 
+#[derive(Debug)]
+pub struct CustomCrypto {
+    kzg_settings: KzgSettings,
+}
+
+impl Default for CustomCrypto {
+    fn default() -> Self {
+        Self { kzg_settings: KzgSettings::load_trusted_setup_file().unwrap() }
+    }
+}
+
+impl Crypto for CustomCrypto {
+    fn verify_kzg_proof(
+        &self,
+        z: &[u8; 32],
+        y: &[u8; 32],
+        commitment: &[u8; 48],
+        proof: &[u8; 48],
+    ) -> Result<(), PrecompileError> {
+        if !KzgProof::verify_kzg_proof(
+            &Bytes48(*commitment),
+            &Bytes32(*z),
+            &Bytes32(*y),
+            &Bytes48(*proof),
+            &self.kzg_settings,
+        )
+        .map_err(|err| PrecompileError::other(err.to_string()))?
+        {
+            return Err(PrecompileError::BlobVerifyKzgProofFailed);
+        }
+
+        Ok(())
+    }
+}
+
 // create the evm builder
 fn evm_builder<DB: Database>(db: DB, mut input: EvmEnv) -> EthEvmBuilder<DB, NoOpInspector> {
     #[allow(unused_mut)]
-    let mut precompiles = PrecompilesMap::from(EthPrecompiles::default());
+    let mut precompiles = PrecompilesMap::from_static(Precompiles::new(
+        PrecompileSpecId::from_spec_id(input.cfg_env.spec),
+    ));
 
     #[cfg(target_os = "zkvm")]
     precompiles.map_precompiles(|address, p| {
@@ -64,6 +104,13 @@ fn evm_builder<DB: Database>(db: DB, mut input: EvmEnv) -> EthEvmBuilder<DB, NoO
             (u64_to_address(8), "bn-pair"),
             (u64_to_address(9), "blake2f"),
             (u64_to_address(10), "kzg-point-evaluation"),
+            (u64_to_address(11), "bls-g1add"),
+            (u64_to_address(12), "bls-g1msm"),
+            (u64_to_address(13), "bls-g2add"),
+            (u64_to_address(14), "bls-g2msm"),
+            (u64_to_address(15), "bls-pairing"),
+            (u64_to_address(16), "bls-map-fp-to-g1"),
+            (u64_to_address(17), "bls-map-fp2-to-g2"),
         ]);
 
         let name = addresses_to_names.get(address).cloned().unwrap_or("unknown");
@@ -78,8 +125,7 @@ fn evm_builder<DB: Database>(db: DB, mut input: EvmEnv) -> EthEvmBuilder<DB, NoO
         precompile.into()
     });
 
-    // disable balance and nonce checks for replay
-    input.cfg_env.disable_balance_check = true;
+    // disable nonce check for replay
     input.cfg_env.disable_nonce_check = true;
 
     EthEvmBuilder::new(db, input).precompiles(precompiles)

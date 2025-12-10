@@ -1,4 +1,9 @@
-use reth_chainspec::{BaseFeeParams, BaseFeeParamsKind, Chain, ChainSpec, EthereumHardfork};
+use alloy_eips::{eip7840::BlobParams, BlobScheduleBlobParams};
+use reth_chainspec::{
+    mainnet::{MAINNET_BPO1_TIMESTAMP, MAINNET_BPO2_TIMESTAMP},
+    BaseFeeParams, BaseFeeParamsKind, Chain, ChainSpec, EthereumHardfork,
+    MAINNET_PRUNE_DELETE_LIMIT,
+};
 
 pub fn mainnet() -> ChainSpec {
     ChainSpec {
@@ -9,7 +14,10 @@ pub fn mainnet() -> ChainSpec {
         hardforks: EthereumHardfork::mainnet().into(),
         deposit_contract: Default::default(),
         base_fee_params: BaseFeeParamsKind::Constant(BaseFeeParams::ethereum()),
-        prune_delete_limit: 20000,
-        blob_params: Default::default(),
+        prune_delete_limit: MAINNET_PRUNE_DELETE_LIMIT,
+        blob_params: BlobScheduleBlobParams::default().with_scheduled([
+            (MAINNET_BPO1_TIMESTAMP, BlobParams::bpo1()),
+            (MAINNET_BPO2_TIMESTAMP, BlobParams::bpo2()),
+        ]),
     }
 }

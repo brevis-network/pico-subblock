@@ -5,7 +5,7 @@ mod mpt;
 
 pub use mpt::Error;
 
-use alloy_primitives::map::{foldhash::HashMapExt, HashMap};
+use alloy_primitives::map::HashMap;
 use itertools::Itertools;
 use mpt::{proofs_to_tries, transition_proofs_to_tries, MptNode, MptNodeReference};
 use reth_trie::{AccountProof, HashedPostState, HashedStorage, TrieAccount};
@@ -147,7 +147,7 @@ impl EthereumState {
         touched_state: &HashMap<B256, Vec<B256>>,
     ) -> (HashSet<MptNodeReference>, HashMap<B256, HashSet<MptNodeReference>>) {
         let mut touched_account_refs = HashSet::new();
-        let mut touched_storage_refs = HashMap::<B256, HashSet<MptNodeReference>>::new();
+        let mut touched_storage_refs = HashMap::<B256, HashSet<MptNodeReference>>::default();
         for (hashed_address_b256, account) in
             post_state.accounts.iter().sorted_by(|a, b| a.0.cmp(b.0))
         {

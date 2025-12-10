@@ -7,7 +7,7 @@ mod utils;
 pub mod custom;
 pub mod error;
 
-use crate::custom::CustomEvmFactory;
+use crate::custom::{CustomCrypto, CustomEvmFactory};
 use alloy_consensus::TxReceipt;
 use alloy_eips::eip7685::Requests;
 use alloy_primitives::Bloom;
@@ -30,7 +30,7 @@ use reth_execution_types::ExecutionOutcome;
 use reth_primitives::{Block, BlockWithSenders, Header, Receipt, TransactionSigned};
 use reth_primitives_traits::{proofs, AlloyBlockHeader, Block as BlockTrait};
 use reth_trie::KeccakKeyHasher;
-use revm::database::WrapDatabaseRef;
+use revm::{database::WrapDatabaseRef, install_crypto};
 use revm_primitives::B256;
 use rsp_mpt::EthereumState;
 use sha2::{Digest, Sha256};
@@ -447,6 +447,8 @@ impl Variant for EthereumVariant {
         chain_spec: &ChainSpec,
         cache_db: DB,
     ) -> Result<BlockExecutionOutput<Receipt>, BlockExecutionError> {
+        install_crypto(CustomCrypto::default());
+
         let evm_config =
             EthEvmConfig::new_with_evm_factory(chain_spec.clone().into(), CustomEvmFactory);
         BasicBlockExecutor::new(evm_config, cache_db).execute(executor_block_input)
